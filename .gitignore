@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+*.log
+
+/.build-env/
+/build/
+/dist/
+*.spec
