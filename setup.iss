@@ -10,7 +10,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
-OutputDir=..\..\output
+OutputDir=release
 OutputBaseFilename=TelemostHotkey-Setup-0.1.0
 Compression=lzma2
 SolidCompression=yes
@@ -46,3 +46,4 @@ begin
     else if ResultCode <> 0 then
       Result := 'Предыдущая версия ещё работает. Завершите её и повторите установку.';
 end;
+
