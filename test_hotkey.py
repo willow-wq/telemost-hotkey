@@ -11,12 +11,12 @@ def load_functions(user):
     tree = ast.parse(Path(__file__).with_name('telemost_hotkey.pyw').read_text(encoding='utf-8'))
     nodes = [node for node in tree.body
              if isinstance(node, (ast.ClassDef, ast.FunctionDef))
-             and node.name in ('KBD', 'call_usable', 'hook')]
+             and node.name in ('KBD', 'call_usable', 'microphone_point', 'hook')]
     for node in nodes:
         if isinstance(node, ast.FunctionDef):
             node.decorator_list = []
     namespace = dict(c=c, w=w, u=user, logging=Mock(), pressed=False,
-                     bound_window=None, cached_call=123, thread_id=7)
+                     bound_window=None, cached_call=123, thread_id=7, hotkey_vk=0xA1)
     exec(compile(ast.Module(body=nodes, type_ignores=[]), '<hotkey tests>', 'exec'), namespace)
     return namespace
 
@@ -60,6 +60,13 @@ class HotkeyTests(unittest.TestCase):
         self.assertEqual(self.key(0x100), 42)
         self.assertEqual(self.key(0x101), 42)
 
+    def test_custom_f8_key_and_old_shift_passthrough(self):
+        self.ns['hotkey_vk'] = 0x77
+        self.assertEqual(self.key(0x100), 42)
+        self.assertEqual(self.key(0x101), 42)
+        self.assertEqual(self.key(0x100, 0x77), 1)
+        self.assertEqual(self.key(0x101, 0x77), 1)
+
     def test_geometry_and_dpi_gate(self):
         def rect(width, height):
             def get_rect(hwnd, pointer):
@@ -77,10 +84,30 @@ class HotkeyTests(unittest.TestCase):
         rect(1000, 700)
         self.user.GetDpiForWindow.return_value = 144
         self.assertFalse(self.ns['call_usable'](123))
+        rect(1500, 1050)
+        self.assertTrue(self.ns['call_usable'](123))
         self.user.GetDpiForWindow.return_value = 96
         self.user.GetClientRect.side_effect = None
         self.user.GetClientRect.return_value = False
         self.assertFalse(self.ns['call_usable'](123))
+
+    def test_toolbar_offsets_at_fractional_and_integer_scales(self):
+        for dpi, width, height, expected in (
+                (96, 1000, 700, (88, 666)),
+                (120, 1250, 875, (110, 833)),
+                (144, 1500, 1050, (132, 999)),
+                (168, 1750, 1225, (154, 1165)),
+                (192, 2000, 1400, (176, 1332)),
+                (288, 3000, 2100, (264, 1998)),
+                (384, 4000, 2800, (352, 2664))):
+            with self.subTest(dpi=dpi):
+                self.assertEqual(self.ns['microphone_point'](height, dpi), expected)
+                x, y = expected
+                self.assertTrue(0 <= x < width and 0 <= y < height)
+
+    def test_dpi_is_recomputed_after_monitor_change(self):
+        self.assertEqual(self.ns['microphone_point'](1400, 192), (176, 1332))
+        self.assertEqual(self.ns['microphone_point'](700, 96), (88, 666))
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 #define AppName "Telemost Right Shift Mic"
-#define AppVersion "0.1.0"
+#define AppVersion "0.2.0"
 [Setup]
 AppId={{A5FA44E7-25D6-45E0-9072-B90B359F014C}
 AppName={#AppName}
@@ -9,9 +9,9 @@ DefaultGroupName={#AppName}
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-MinVersion=10.0
+MinVersion=10.0.15063
 OutputDir=release
-OutputBaseFilename=TelemostHotkey-Setup-0.1.0
+OutputBaseFilename=TelemostHotkey-Setup-0.2.0
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -29,6 +29,7 @@ Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 [Icons]
 Name: "{userstartup}\Telemost Right Shift Mic"; Filename: "{app}\TelemostHotkey.exe"; Parameters: "--watch"; Tasks: autostart
 Name: "{group}\Telemost Right Shift Mic"; Filename: "{app}\TelemostHotkey.exe"; Parameters: "--watch"
+Name: "{group}\Настроить клавишу Telemost"; Filename: "{app}\TelemostHotkey.exe"; Parameters: "--settings"
 Name: "{group}\Удалить Telemost Right Shift Mic"; Filename: "{uninstallexe}"
 [Run]
 Filename: "{app}\TelemostHotkey.exe"; Parameters: "--watch"; Flags: nowait runhidden skipifsilent
@@ -46,4 +47,3 @@ begin
     else if ResultCode <> 0 then
       Result := 'Предыдущая версия ещё работает. Завершите её и повторите установку.';
 end;
-

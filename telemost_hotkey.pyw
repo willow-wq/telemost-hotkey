@@ -8,14 +8,26 @@ import os
 import subprocess
 import sys
 import time
+from hotkey_settings import KEYS, load_key, show_settings
 
 LOG_DIR = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'TelemostHotkey'
 LOG_DIR.mkdir(parents=True, exist_ok=True)
+CONFIG_PATH = LOG_DIR / 'config.json'
+if '--settings' in sys.argv:
+    show_settings(CONFIG_PATH)
+    raise SystemExit(0)
 logging.basicConfig(handlers=[RotatingFileHandler(LOG_DIR / ('watcher.log' if '--watch' in sys.argv else 'worker.log'),
                     maxBytes=256_000, backupCount=1, encoding='utf-8')],
                     level=logging.INFO, format='%(asctime)s %(message)s')
 u = c.WinDLL('user32', use_last_error=True)
 k = c.WinDLL('kernel32', use_last_error=True)
+# Keep client coordinates and child-window mapping in the same physical-pixel
+# space, including after moving Telemost between monitors with different DPI.
+u.SetProcessDpiAwarenessContext.argtypes = [w.HANDLE]
+u.SetProcessDpiAwarenessContext.restype = w.BOOL
+if not u.SetProcessDpiAwarenessContext(c.c_void_p(-4)):
+    if c.get_last_error() != 5:  # A manifest may already have set awareness.
+        raise c.WinError(c.get_last_error())
 LRESULT = c.c_ssize_t
 HOOKPROC = c.WINFUNCTYPE(LRESULT, c.c_int, w.WPARAM, w.LPARAM)
 u.SetWindowsHookExW.argtypes = [c.c_int, HOOKPROC, w.HINSTANCE, w.DWORD]
@@ -94,6 +106,10 @@ class KBD(c.Structure):
 if '--self-test' in sys.argv:
     # Exercise bundled imports and native process enumeration without a hook.
     telemost_pids()
+    import tkinter as tk
+    test_root = tk.Tk()
+    test_root.withdraw()
+    test_root.destroy()
     raise SystemExit(0)
 
 stop_event = k.CreateEventW(None, True, False, 'Local\\TelemostRightShiftMic_stop')
@@ -148,8 +164,13 @@ if watcher:
 
 def call_usable(hwnd):
     rect = w.RECT()
-    return (u.GetClientRect(hwnd, c.byref(rect)) and rect.right >= 800
-            and rect.bottom >= 450 and u.GetDpiForWindow(hwnd) == 96)
+    dpi = u.GetDpiForWindow(hwnd)
+    return (dpi > 0 and u.GetClientRect(hwnd, c.byref(rect))
+            and rect.right >= round(800 * dpi / 96)
+            and rect.bottom >= round(450 * dpi / 96))
+
+def microphone_point(height, dpi):
+    return round(88 * dpi / 96), height - round(34 * dpi / 96)
 
 def call_window(pids):
     matches = []
@@ -173,9 +194,15 @@ def toggle_mic(hwnd):
     if not call_usable(hwnd) or not u.GetClientRect(hwnd, c.byref(rect)):
         logging.info('Skipped unsupported window size')
         return
-    # Observed native call toolbar: link at x32, microphone at x88;
-    # buttons stay anchored to the left and bottom of the client area.
-    point = w.POINT(88, rect.bottom - 34)
+    # Toolbar offsets are device-independent pixels in the supported Qt layout.
+    # Re-read DPI here: the window may have changed monitor since the timer tick.
+    dpi = u.GetDpiForWindow(hwnd)
+    if not dpi:
+        return
+    x, y = microphone_point(rect.bottom, dpi)
+    if not (0 <= x < rect.right and 0 <= y < rect.bottom):
+        return
+    point = w.POINT(x, y)
     target = hwnd
     for _ in range(12):
         child = u.ChildWindowFromPointEx(target, point, 7)
@@ -192,6 +219,7 @@ pressed = False
 bound_window = None
 cached_call = None
 thread_id = k.GetCurrentThreadId()
+hotkey_vk = KEYS[load_key(CONFIG_PATH)]
 
 @HOOKPROC
 def hook(code, message, data):
@@ -199,12 +227,13 @@ def hook(code, message, data):
     try:
         if code >= 0:
             event = c.cast(data, c.POINTER(KBD)).contents
-            if event.vkCode == 0xA1:
+            if event.vkCode == hotkey_vk:
                 if message in (0x100, 0x104):
                     if not pressed:
                         # Preserve Shift chords with modifiers already held.
                         modifiers = any(u.GetAsyncKeyState(v) & 0x8000
-                                        for v in (0x11, 0x12, 0x5B, 0x5C, 0xA0))
+                                        for v in (0x11, 0x12, 0x5B, 0x5C, 0xA0, 0xA1)
+                                        if v != hotkey_vk)
                         bound_window = None if modifiers else cached_call
                         pressed = True
                         if bound_window:
@@ -236,6 +265,8 @@ try:
         if result == 0:
             break
         if msg.message == 0x113:
+            if not pressed:
+                hotkey_vk = KEYS[load_key(CONFIG_PATH)]
             if k.WaitForSingleObject(stop_event, 0) == 0:
                 break
             pids = telemost_pids()
@@ -247,7 +278,7 @@ try:
                 handle = u.SetWindowsHookExW(13, hook, k.GetModuleHandleW(None), 0)
                 if not handle:
                     raise c.WinError(c.get_last_error())
-                logging.info('Call detected; global Right Shift enabled')
+                logging.info('Call detected; configured global key enabled (VK=%s)', hotkey_vk)
             elif not cached_call and handle:
                 u.UnhookWindowsHookEx(handle)
                 handle = None

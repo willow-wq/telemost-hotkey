@@ -1,8 +1,8 @@
 # Telemost Right Shift Mic
 
-**[Скачать установщик для Windows x64](https://github.com/willow-wq/telemost-hotkey/releases/latest/download/TelemostHotkey-Setup-0.1.0.exe)** — Python устанавливать не нужно.
+**[Скачать установщик Windows 0.2.0](https://github.com/willow-wq/telemost-hotkey/releases/download/v0.2.0/TelemostHotkey-Setup-0.2.0.exe)** — Python отдельно не нужен.
 
-[Все релизы](https://github.com/willow-wq/telemost-hotkey/releases)
+[Расширение для браузеров](https://github.com/willow-wq/telemost-hotkey/releases/download/v0.2.0/TelemostHotkey-Browser-0.2.0.zip) · [Ubuntu: экспериментальные исходники](https://github.com/willow-wq/telemost-hotkey/releases/download/v0.2.0/TelemostHotkey-Ubuntu-experimental-0.2.0.zip) · [Релиз и ограничения](https://github.com/willow-wq/telemost-hotkey/releases/tag/v0.2.0)
 
 
 Экспериментальная утилита для Windows: **правый Shift включает и выключает
@@ -18,17 +18,26 @@
   чтобы автоматически обнаружить следующий запуск приложения.
 - Обнаружение запуска и завершения занимает примерно 1–2 секунды.
 
-Во время звонка одиночный правый Shift занят переключением микрофона.
+Клавиша по умолчанию — правый Shift. Чтобы изменить её в Windows, откройте
+**Пуск → Настроить клавишу Telemost**, выберите, например, F8 и сохраните.
+Настройка применяется в течение секунды, перезапуск Телемоста не требуется.
+Поддерживается одна клавиша без сочетаний; доступны F1–F24, буквы, цифры
+и несколько служебных клавиш. Из исходников: `pythonw telemost_hotkey.pyw --settings`.
+Настройка сохраняется в `%LOCALAPPDATA%\TelemostHotkey\config.json`.
+
+Во время звонка выбранная клавиша занята переключением микрофона.
 Для обычного набора заглавных букв используйте левый Shift.
 
 ## Совместимость и ограничения
 
-Проверено только с **Windows, русским настольным Телемостом 3.1.3
-и масштабом экрана 100%**. Браузерная версия не поддерживается.
+Настольный обработчик проверен с **русским Телемостом 3.1.3 на Windows**.
+Для браузерной версии используется отдельное расширение из папки `browser`.
 
-Утилита отправляет нажатие по фиксированным координатам кнопки микрофона
-внутри окна. Она не получает состояние микрофона через API. Другие версии,
-языки, DPI/масштабы и изменения панели звонка не проверены: нажатие может
+Утилита отправляет нажатие по координатам кнопки микрофона внутри окна.
+Она не получает состояние микрофона через API. Координаты автоматически
+пересчитываются по DPI окна при каждом нажатии, включая перенос между
+мониторами. Другие версии,
+языки, нестандартный масштаб Qt и изменения панели звонка не проверены: нажатие может
 не сработать или попасть в другой элемент. Перед настоящим разговором
 обязательно проверьте переключение в пустом звонке и убедитесь по значку,
 что изменился именно микрофон. Не используйте утилиту как гарантию отключения
@@ -38,7 +47,7 @@
 
 ### Готовый установщик (Python не нужен)
 
-Запустите `TelemostHotkey-Setup-0.1.0.exe` и завершите установку.
+Запустите `TelemostHotkey-Setup-0.2.0.exe` и завершите установку.
 Автозапуск включён по умолчанию. Утилита устанавливается в
 `%LOCALAPPDATA%\Programs\TelemostHotkey` только для текущего пользователя.
 После установки откройте Телемост и проверьте правый Shift в пустом звонке.
@@ -111,10 +120,17 @@ pythonw.exe .\telemost_hotkey.pyw --watch
 
 ```powershell
 python -m pip install pyinstaller==6.22.3
-python -m PyInstaller --noconfirm --clean --onefile --windowed --name TelemostHotkey --distpath dist --workpath build telemost_hotkey.pyw
+python -m PyInstaller --noconfirm --clean --onefile --windowed --manifest TelemostHotkey.manifest --name TelemostHotkey --distpath dist --workpath build telemost_hotkey.pyw
 & 'C:\путь\к\Inno Setup\ISCC.exe' setup.iss
 ```
 
 В готовый EXE включается интерпретатор Python. Автоматические тесты исходников:
 `python -m unittest discover -p 'test_*.py' -v`.
 
+## Браузеры и Ubuntu
+
+См. browser/README.md: расширение для Chromium, Яндекс Браузера и Firefox; правый Shift действует только в активной вкладке Телемоста, масштаб страницы не влияет на поиск кнопки.
+
+См. linux/README.md: экспериментальный Ubuntu X11 обработчик и команда для системного сочетания в Wayland. Это отдельный Linux-вариант, Windows EXE в Ubuntu не используется. На настоящем Ubuntu ещё не проверено.
+
+Windows: автоматические тесты проверяют расчёт координат при DPI 96–384 (100–400%). Реальные звонки при всех этих масштабах пока не проверены.
