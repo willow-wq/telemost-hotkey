@@ -7,7 +7,6 @@ import os
 import select
 import time
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import urlsplit
 from pathlib import Path
 
 MIC_LABELS = frozenset({
@@ -15,7 +14,6 @@ MIC_LABELS = frozenset({
     'mute microphone', 'unmute microphone',
     'turn microphone on', 'turn microphone off',
 })
-HOSTS = frozenset({'telemost.yandex.ru', 'telemost.360.yandex.ru'})
 
 
 def configured_key(cli_key, config_path):
@@ -37,14 +35,6 @@ def is_mic_label(name):
     return ' '.join(name.casefold().split()) in MIC_LABELS
 
 
-def is_telemost_url(value):
-    try:
-        parsed = urlsplit(value)
-        return parsed.scheme == 'https' and parsed.hostname in HOSTS
-    except ValueError:
-        return False
-
-
 def find_button(atspi):
     """Return one unambiguous, enabled visible button; incomplete scans fail closed."""
     matches = []
@@ -58,13 +48,8 @@ def find_button(atspi):
             role = node.getRole()
             if role == atspi.ROLE_APPLICATION:
                 scoped = node.name.casefold() in {'yandextelemost', 'yandex telemost', 'telemost', 'яндекс телемост', 'телемост'}
-            if role in (atspi.ROLE_DOCUMENT_WEB, atspi.ROLE_DOCUMENT_FRAME):
-                # A document name alone cannot distinguish a Telemost page from
-                # an unrelated tab that happens to mention the service.
-                try:
-                    scoped = scoped or is_telemost_url(node.queryDocument().getAttributeValue('DocURL'))
-                except (NotImplementedError, LookupError):
-                    pass
+                if not scoped:
+                    continue
             if scoped and role in (atspi.ROLE_PUSH_BUTTON, atspi.ROLE_TOGGLE_BUTTON, atspi.ROLE_CHECK_BOX):
                 states = node.getState()
                 if (is_mic_label(node.name) and states.contains(atspi.STATE_ENABLED)

@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from telemost_hotkey import configured_key, is_mic_label, is_telemost_url
+from telemost_hotkey import configured_key, is_mic_label
 
 
 class MatchingTests(unittest.TestCase):
@@ -23,13 +23,6 @@ class MatchingTests(unittest.TestCase):
     def test_unrelated_controls(self):
         for label in ('Микрофон', 'Microphone settings', 'Выключить камеру', ''):
             self.assertFalse(is_mic_label(label))
-
-    def test_exact_service_hosts(self):
-        self.assertTrue(is_telemost_url('https://telemost.yandex.ru/j/123'))
-        self.assertFalse(is_telemost_url('https://telemost.yandex.ru.evil.example/'))
-        self.assertFalse(is_telemost_url('https://example.org/?telemost.yandex.ru'))
-        self.assertFalse(is_telemost_url('http://telemost.yandex.ru/'))
-
 
 if __name__ == '__main__':
     unittest.main()
